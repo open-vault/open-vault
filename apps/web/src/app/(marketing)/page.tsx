@@ -92,6 +92,22 @@ function IconAdapters() {
   );
 }
 
+function IconBrain() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+      <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+      <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+      <path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
+      <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+      <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+      <path d="M19.938 10.5a4 4 0 0 1 .585.396"/>
+      <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+      <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
+    </svg>
+  );
+}
+
 function IconArrow() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -206,6 +222,11 @@ const FEATURES: Feature[] = [
     icon: <IconAdapters />,
     title: "Pluggable backends",
     description: "Store secrets anywhere — local disk, S3, R2, Convex, Postgres, MySQL, or Redis. Switch adapters without changing your workflow.",
+  },
+  {
+    icon: <IconBrain />,
+    title: "AI-native MCP server",
+    description: "Give Claude read-only access to your secrets. Decrypted locally, never in the cloud. Works with Claude Desktop and any MCP-compatible AI tool.",
   },
 ];
 
@@ -459,7 +480,14 @@ function Hero() {
             <div style={{ color: "var(--mk-accent)" }}>
               Encrypted locally. Uploaded ciphertext. Done.
             </div>
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 12, marginBottom: 4 }}>
+              <span className="mk-comment"># Claude Desktop integration</span>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <span className="mk-prompt">$ </span>
+              <span className="mk-cmd">bunx @open-vault/mcp</span>
+            </div>
+            <div style={{ marginTop: 4 }}>
               <span className="mk-prompt">$ </span>
               <span className="mk-cursor" />
             </div>
@@ -482,6 +510,7 @@ function Hero() {
               { label: "encryption", value: "ChaCha20" },
               { label: "identity", value: "SSH ED25519" },
               { label: "storage adapters", value: "7" },
+              { label: "MCP tools", value: "AI-native" },
             ].map(({ label, value }) => (
               <div key={label} style={{ flex: 1 }}>
                 <div
