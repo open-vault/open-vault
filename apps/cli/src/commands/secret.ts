@@ -67,9 +67,10 @@ export function registerSecretCommands(program: Command) {
               process.stdin.setRawMode(false);
               process.exit(1);
             } else if (ch === "\u007f" || ch === "\b") { // backspace
-              if (buf.length > 0) buf = buf.slice(0, -1);
+              if (buf.length > 0) { buf = buf.slice(0, -1); process.stderr.write("\b \b"); }
             } else {
               buf += ch;
+              process.stderr.write("•");
             }
           };
           process.stdin.on("data", onData);
@@ -89,14 +90,14 @@ export function registerSecretCommands(program: Command) {
         const existing = secrets.find((s) => s.name === name);
         if (existing) {
           await adapter.updateSecret(existing.id, session.userId, encrypted);
-          console.log(`✓ Secret "${name}" updated.`);
+          console.log(`✓ Encrypted and stored`);
         } else {
           await adapter.createSecret(project.id, env.id, session.userId, {
             name,
             type: opts.type.toUpperCase() as SecretType,
             ...encrypted,
           });
-          console.log(`✓ Secret "${name}" created.`);
+          console.log(`✓ Encrypted and stored`);
         }
       } catch (e: any) {
         console.error("Error:", e.message);
@@ -127,7 +128,7 @@ export function registerSecretCommands(program: Command) {
         if (opts.raw) {
           process.stdout.write(decrypted);
         } else {
-          console.log(`${name}=${decrypted}`);
+          console.log(decrypted);
         }
       } catch (e: any) {
         console.error("Error:", e.message);
