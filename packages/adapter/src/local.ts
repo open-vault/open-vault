@@ -5,6 +5,7 @@
  * Storage layout (under rootDir):
  *   users/{fingerprint}.json
  *   projects/{projectId}.json
+ *   environments/{environmentId}.json
  *   secrets/{secretId}.json
  *   secret-versions/{secretId}/{versionId}.json
  *   teams/{teamId}.json
@@ -21,6 +22,7 @@ import type {
   AuthResult,
   VaultUser,
   VaultProject,
+  VaultEnvironment,
   VaultSecret,
   VaultSecretVersion,
   VaultTeam,
@@ -145,9 +147,31 @@ export class LocalAdapter implements VaultAdapter {
     this.write(filePath, { ...project, status: "DELETED", updatedAt: now() });
   }
 
-  async listSecrets(projectId: string, type?: SecretType): Promise<VaultSecret[]> {
+  async listEnvironments(projectId: string): Promise<VaultEnvironment[]> {
+    return this.readDir<VaultEnvironment>(this.path("environments")).filter(
+      (e) => e.projectId === projectId
+    );
+  }
+
+  async createEnvironment(projectId: string, name: string): Promise<VaultEnvironment> {
+    const env: VaultEnvironment = {
+      id: generateId(),
+      projectId,
+      name,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    this.write(this.path("environments", `${env.id}.json`), env);
+    return env;
+  }
+
+  async deleteEnvironment(environmentId: string): Promise<void> {
+    this.remove(this.path("environments", `${environmentId}.json`));
+  }
+
+  async listSecrets(projectId: string, environmentId: string, type?: SecretType): Promise<VaultSecret[]> {
     return this.readDir<VaultSecret>(this.path("secrets"))
-      .filter((s) => s.projectId === projectId && s.status === "ACTIVE" && (!type || s.type === type))
+      .filter((s) => s.projectId === projectId && s.environmentId === environmentId && s.status === "ACTIVE" && (!type || s.type === type))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -162,7 +186,7 @@ export class LocalAdapter implements VaultAdapter {
     return { secret, version };
   }
 
-  async createSecret(projectId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
+  async createSecret(projectId: string, environmentId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
     const secretId = generateId();
     const versionId = generateId();
     const version: VaultSecretVersion = {
@@ -178,6 +202,7 @@ export class LocalAdapter implements VaultAdapter {
     const secret: VaultSecret = {
       id: secretId,
       projectId,
+      environmentId,
       createdBy,
       name: input.name,
       type: input.type,
@@ -253,12 +278,12 @@ export class LocalAdapter implements VaultAdapter {
     return newVersion;
   }
 
-  async batchCreateSecrets(projectId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
-    for (const s of secrets) await this.createSecret(projectId, createdBy, s);
+  async batchCreateSecrets(projectId: string, environmentId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
+    for (const s of secrets) await this.createSecret(projectId, environmentId, createdBy, s);
   }
 
-  async listSecretsForExport(projectId: string): Promise<ExportSecret[]> {
-    const secrets = await this.listSecrets(projectId);
+  async listSecretsForExport(projectId: string, environmentId: string): Promise<ExportSecret[]> {
+    const secrets = await this.listSecrets(projectId, environmentId);
     return Promise.all(secrets.map(async (s) => {
       const { version } = await this.getSecret(s.id);
       return {
@@ -272,8 +297,8 @@ export class LocalAdapter implements VaultAdapter {
     }));
   }
 
-  async searchSecrets(projectId: string, query: string): Promise<VaultSecret[]> {
-    const secrets = await this.listSecrets(projectId);
+  async searchSecrets(projectId: string, environmentId: string, query: string): Promise<VaultSecret[]> {
+    const secrets = await this.listSecrets(projectId, environmentId);
     const q = query.toLowerCase();
     return secrets.filter((s) => s.name.toLowerCase().includes(q));
   }

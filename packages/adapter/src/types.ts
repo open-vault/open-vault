@@ -28,9 +28,18 @@ export interface VaultProject {
   updatedAt: string;
 }
 
+export interface VaultEnvironment {
+  id: string;
+  projectId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VaultSecret {
   id: string;
   projectId: string;
+  environmentId: string;
   createdBy: string;
   name: string;
   type: SecretType;
@@ -161,17 +170,22 @@ export interface VaultAdapter {
   createProject(userId: string, input: CreateProjectInput): Promise<VaultProject>;
   deleteProject(projectId: string): Promise<void>;
 
+  // Environments
+  listEnvironments(projectId: string): Promise<VaultEnvironment[]>;
+  createEnvironment(projectId: string, name: string): Promise<VaultEnvironment>;
+  deleteEnvironment(environmentId: string): Promise<void>;
+
   // Secrets
-  listSecrets(projectId: string, type?: SecretType): Promise<VaultSecret[]>;
+  listSecrets(projectId: string, environmentId: string, type?: SecretType): Promise<VaultSecret[]>;
   getSecret(secretId: string): Promise<{ secret: VaultSecret; version: VaultSecretVersion }>;
-  createSecret(projectId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret>;
+  createSecret(projectId: string, environmentId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret>;
   updateSecret(secretId: string, createdBy: string, input: UpdateSecretInput): Promise<VaultSecret>;
   deleteSecret(secretId: string): Promise<void>;
   listSecretVersions(secretId: string): Promise<VaultSecretVersion[]>;
   rollbackSecret(secretId: string, targetVersionId: string, createdBy: string): Promise<VaultSecretVersion>;
-  batchCreateSecrets(projectId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void>;
-  listSecretsForExport(projectId: string): Promise<ExportSecret[]>;
-  searchSecrets(projectId: string, query: string): Promise<VaultSecret[]>;
+  batchCreateSecrets(projectId: string, environmentId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void>;
+  listSecretsForExport(projectId: string, environmentId: string): Promise<ExportSecret[]>;
+  searchSecrets(projectId: string, environmentId: string, query: string): Promise<VaultSecret[]>;
 
   // Teams
   createTeam(userId: string, name: string, encryptedTeamKey: string): Promise<VaultTeam>;

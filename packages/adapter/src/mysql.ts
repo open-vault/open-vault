@@ -4,7 +4,7 @@
  * Schema is created automatically on first use (DDL idempotent via IF NOT EXISTS).
  *
  * Tables:
- *   ov_users, ov_projects, ov_secrets, ov_secret_versions,
+ *   ov_users, ov_projects, ov_environments, ov_secrets, ov_secret_versions,
  *   ov_teams, ov_team_members, ov_share_links
  *
  * Auth: MySQL credentials gate database access. SSH fingerprint identifies
@@ -19,6 +19,7 @@ import type {
   AuthResult,
   VaultUser,
   VaultProject,
+  VaultEnvironment,
   VaultSecret,
   VaultSecretVersion,
   VaultTeam,
@@ -98,9 +99,17 @@ export class MySQLAdapter implements VaultAdapter {
         created_at VARCHAR(64) NOT NULL,
         updated_at VARCHAR(64) NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS ${p}environments (
+        id VARCHAR(40) PRIMARY KEY,
+        project_id VARCHAR(40) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        created_at VARCHAR(64) NOT NULL,
+        updated_at VARCHAR(64) NOT NULL
+      )`,
       `CREATE TABLE IF NOT EXISTS ${p}secrets (
         id VARCHAR(40) PRIMARY KEY,
         project_id VARCHAR(40) NOT NULL,
+        environment_id VARCHAR(40) NOT NULL DEFAULT 'default',
         created_by VARCHAR(40) NOT NULL,
         name VARCHAR(255) NOT NULL,
         type VARCHAR(20) NOT NULL,
@@ -202,10 +211,26 @@ export class MySQLAdapter implements VaultAdapter {
     await this.q(`UPDATE ${this.t("projects")} SET status='DELETED', updated_at=? WHERE id=?`, [now(), projectId]);
   }
 
-  async listSecrets(projectId: string, type?: SecretType): Promise<VaultSecret[]> {
+  async listEnvironments(projectId: string): Promise<VaultEnvironment[]> {
+    const rows = await this.q<Record<string, string>>(`SELECT * FROM ${this.t("environments")} WHERE project_id=? ORDER BY name`, [projectId]);
+    return rows.map(this.rowToEnvironment);
+  }
+
+  async createEnvironment(projectId: string, name: string): Promise<VaultEnvironment> {
+    const id = generateId();
+    const ts = now();
+    await this.q(`INSERT INTO ${this.t("environments")} (id, project_id, name, created_at, updated_at) VALUES (?,?,?,?,?)`, [id, projectId, name, ts, ts]);
+    return this.rowToEnvironment({ id, project_id: projectId, name, created_at: ts, updated_at: ts });
+  }
+
+  async deleteEnvironment(environmentId: string): Promise<void> {
+    await this.q(`DELETE FROM ${this.t("environments")} WHERE id=?`, [environmentId]);
+  }
+
+  async listSecrets(projectId: string, environmentId: string, type?: SecretType): Promise<VaultSecret[]> {
     const rows = type
-      ? await this.q<Record<string, string>>(`SELECT * FROM ${this.t("secrets")} WHERE project_id=? AND status='ACTIVE' AND type=? ORDER BY name`, [projectId, type])
-      : await this.q<Record<string, string>>(`SELECT * FROM ${this.t("secrets")} WHERE project_id=? AND status='ACTIVE' ORDER BY name`, [projectId]);
+      ? await this.q<Record<string, string>>(`SELECT * FROM ${this.t("secrets")} WHERE project_id=? AND environment_id=? AND status='ACTIVE' AND type=? ORDER BY name`, [projectId, environmentId, type])
+      : await this.q<Record<string, string>>(`SELECT * FROM ${this.t("secrets")} WHERE project_id=? AND environment_id=? AND status='ACTIVE' ORDER BY name`, [projectId, environmentId]);
     return rows.map(this.rowToSecret);
   }
 
@@ -217,13 +242,13 @@ export class MySQLAdapter implements VaultAdapter {
     return { secret: this.rowToSecret(s), version: this.rowToVersion(v) };
   }
 
-  async createSecret(projectId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
+  async createSecret(projectId: string, environmentId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
     const secretId = generateId();
     const versionId = generateId();
     const ts = now();
     await this.q(`INSERT INTO ${this.t("secret_versions")} (id, secret_id, version_number, encrypted_value, encrypted_key, iv, created_by, created_at) VALUES (?,?,1,?,?,?,?,?)`, [versionId, secretId, input.encryptedValue, input.encryptedKey, input.iv, createdBy, ts]);
-    await this.q(`INSERT INTO ${this.t("secrets")} (id, project_id, created_by, name, type, description, current_version_id, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,'ACTIVE',?,?)`, [secretId, projectId, createdBy, input.name, input.type, input.description ?? null, versionId, ts, ts]);
-    return this.rowToSecret({ id: secretId, project_id: projectId, created_by: createdBy, name: input.name, type: input.type, description: input.description ?? "", current_version_id: versionId, status: "ACTIVE", created_at: ts, updated_at: ts });
+    await this.q(`INSERT INTO ${this.t("secrets")} (id, project_id, environment_id, created_by, name, type, description, current_version_id, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,'ACTIVE',?,?)`, [secretId, projectId, environmentId, createdBy, input.name, input.type, input.description ?? null, versionId, ts, ts]);
+    return this.rowToSecret({ id: secretId, project_id: projectId, environment_id: environmentId, created_by: createdBy, name: input.name, type: input.type, description: input.description ?? "", current_version_id: versionId, status: "ACTIVE", created_at: ts, updated_at: ts });
   }
 
   async updateSecret(secretId: string, createdBy: string, input: UpdateSecretInput): Promise<VaultSecret> {
@@ -263,20 +288,20 @@ export class MySQLAdapter implements VaultAdapter {
     return this.rowToVersion({ id: newVersionId, secret_id: secretId, version_number: String(nextVersion), encrypted_value: target.encrypted_value, encrypted_key: target.encrypted_key, iv: target.iv, created_by: createdBy, created_at: ts });
   }
 
-  async batchCreateSecrets(projectId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
-    await Promise.all(secrets.map((s) => this.createSecret(projectId, createdBy, s)));
+  async batchCreateSecrets(projectId: string, environmentId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
+    await Promise.all(secrets.map((s) => this.createSecret(projectId, environmentId, createdBy, s)));
   }
 
-  async listSecretsForExport(projectId: string): Promise<ExportSecret[]> {
-    const secrets = await this.listSecrets(projectId);
+  async listSecretsForExport(projectId: string, environmentId: string): Promise<ExportSecret[]> {
+    const secrets = await this.listSecrets(projectId, environmentId);
     return Promise.all(secrets.map(async (s) => {
       const { version } = await this.getSecret(s.id);
       return { id: s.id, name: s.name, type: s.type, encryptedValue: version.encryptedValue, encryptedKey: version.encryptedKey, iv: version.iv };
     }));
   }
 
-  async searchSecrets(projectId: string, query: string): Promise<VaultSecret[]> {
-    const rows = await this.q<Record<string, string>>(`SELECT * FROM ${this.t("secrets")} WHERE project_id=? AND status='ACTIVE' AND name LIKE ? ORDER BY name`, [projectId, `%${query}%`]);
+  async searchSecrets(projectId: string, environmentId: string, query: string): Promise<VaultSecret[]> {
+    const rows = await this.q<Record<string, string>>(`SELECT * FROM ${this.t("secrets")} WHERE project_id=? AND environment_id=? AND status='ACTIVE' AND name LIKE ? ORDER BY name`, [projectId, environmentId, `%${query}%`]);
     return rows.map(this.rowToSecret);
   }
 
@@ -354,8 +379,12 @@ export class MySQLAdapter implements VaultAdapter {
     return { id: r.id, ownerId: r.owner_id, ownerType: r.owner_type as "USER" | "TEAM", name: r.name, description: r.description || undefined, status: r.status as "ACTIVE" | "DELETED", createdAt: r.created_at, updatedAt: r.updated_at };
   }
 
+  private rowToEnvironment(r: Record<string, string>): VaultEnvironment {
+    return { id: r.id, projectId: r.project_id, name: r.name, createdAt: r.created_at, updatedAt: r.updated_at };
+  }
+
   private rowToSecret(r: Record<string, string>): VaultSecret {
-    return { id: r.id, projectId: r.project_id, createdBy: r.created_by, name: r.name, type: r.type as SecretType, description: r.description || undefined, currentVersionId: r.current_version_id || undefined, status: r.status as "ACTIVE" | "DELETED", createdAt: r.created_at, updatedAt: r.updated_at };
+    return { id: r.id, projectId: r.project_id, environmentId: r.environment_id, createdBy: r.created_by, name: r.name, type: r.type as SecretType, description: r.description || undefined, currentVersionId: r.current_version_id || undefined, status: r.status as "ACTIVE" | "DELETED", createdAt: r.created_at, updatedAt: r.updated_at };
   }
 
   private rowToVersion(r: Record<string, string>): VaultSecretVersion {

@@ -12,6 +12,23 @@ async function resolveProject(adapter: Awaited<ReturnType<typeof createAdapter>>
   return project;
 }
 
+async function resolveEnvironment(
+  adapter: Awaited<ReturnType<typeof createAdapter>>,
+  projectId: string,
+  name = "default"
+) {
+  const envs = await adapter.listEnvironments(projectId);
+  let env = envs.find((e) => e.name === name);
+  if (!env) {
+    if (name === "default") {
+      env = await adapter.createEnvironment(projectId, "default");
+    } else {
+      throw new Error(`Environment "${name}" not found. Create it with: ov env create ${name} --project <project>`);
+    }
+  }
+  return env;
+}
+
 export function registerSecretCommands(program: Command) {
   const secret = program.command("secret").description("Secret management");
 
@@ -19,6 +36,7 @@ export function registerSecretCommands(program: Command) {
   secret
     .command("set <name>")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .option("--type <t>", "Secret type (KV|ENV_FILE|NOTE|JSON)", "KV")
     .option("--file <f>", "Read value from file")
     .option("--value <v>", "Value (or pass via stdin)")
@@ -66,13 +84,14 @@ export function registerSecretCommands(program: Command) {
         const encrypted = await encryptValue(masterKey, value);
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
-        const secrets = await adapter.listSecrets(project.id);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
+        const secrets = await adapter.listSecrets(project.id, env.id);
         const existing = secrets.find((s) => s.name === name);
         if (existing) {
           await adapter.updateSecret(existing.id, session.userId, encrypted);
           console.log(`✓ Secret "${name}" updated.`);
         } else {
-          await adapter.createSecret(project.id, session.userId, {
+          await adapter.createSecret(project.id, env.id, session.userId, {
             name,
             type: opts.type.toUpperCase() as SecretType,
             ...encrypted,
@@ -89,6 +108,7 @@ export function registerSecretCommands(program: Command) {
   secret
     .command("get <name>")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .option("--raw", "Output raw value only")
     .action(async (name, opts) => {
       const config = loadConfig();
@@ -97,7 +117,8 @@ export function registerSecretCommands(program: Command) {
       try {
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
-        const secrets = await adapter.listSecrets(project.id);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
+        const secrets = await adapter.listSecrets(project.id, env.id);
         const s = secrets.find((x) => x.name === name);
         if (!s) { console.error(`Secret "${name}" not found.`); process.exit(1); }
         const { version } = await adapter.getSecret(s.id);
@@ -118,6 +139,7 @@ export function registerSecretCommands(program: Command) {
   secret
     .command("list")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .option("--type <t>", "Filter by type")
     .action(async (opts) => {
       const config = loadConfig();
@@ -126,7 +148,8 @@ export function registerSecretCommands(program: Command) {
       try {
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
-        const secrets = await adapter.listSecrets(project.id, opts.type?.toUpperCase() as SecretType | undefined);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
+        const secrets = await adapter.listSecrets(project.id, env.id, opts.type?.toUpperCase() as SecretType | undefined);
         if (secrets.length === 0) { console.log("No secrets."); return; }
         for (const s of secrets) {
           console.log(`  ${s.name}  [${s.type}]  ${s.id}`);
@@ -141,6 +164,7 @@ export function registerSecretCommands(program: Command) {
   secret
     .command("delete <name>")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .action(async (name, opts) => {
       const config = loadConfig();
       const session = loadSession();
@@ -148,7 +172,8 @@ export function registerSecretCommands(program: Command) {
       try {
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
-        const secrets = await adapter.listSecrets(project.id);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
+        const secrets = await adapter.listSecrets(project.id, env.id);
         const s = secrets.find((x) => x.name === name);
         if (!s) { console.error(`Secret "${name}" not found.`); process.exit(1); }
         await adapter.deleteSecret(s.id);
@@ -163,6 +188,7 @@ export function registerSecretCommands(program: Command) {
   secret
     .command("versions <name>")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .action(async (name, opts) => {
       const config = loadConfig();
       const session = loadSession();
@@ -170,7 +196,8 @@ export function registerSecretCommands(program: Command) {
       try {
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
-        const secrets = await adapter.listSecrets(project.id);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
+        const secrets = await adapter.listSecrets(project.id, env.id);
         const s = secrets.find((x) => x.name === name);
         if (!s) { console.error(`Secret "${name}" not found.`); process.exit(1); }
         const versions = await adapter.listSecretVersions(s.id);
@@ -189,6 +216,7 @@ export function registerSecretCommands(program: Command) {
     .command("rollback <name>")
     .requiredOption("--version <id>", "Version ID to rollback to")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .action(async (name, opts) => {
       const config = loadConfig();
       const session = loadSession();
@@ -196,7 +224,8 @@ export function registerSecretCommands(program: Command) {
       try {
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
-        const secrets = await adapter.listSecrets(project.id);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
+        const secrets = await adapter.listSecrets(project.id, env.id);
         const s = secrets.find((x) => x.name === name);
         if (!s) { console.error(`Secret "${name}" not found.`); process.exit(1); }
         const version = await adapter.rollbackSecret(s.id, opts.version, session.userId);
@@ -211,6 +240,7 @@ export function registerSecretCommands(program: Command) {
   secret
     .command("import <file>")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .action(async (file, opts) => {
       const config = loadConfig();
       const session = loadSession();
@@ -228,6 +258,7 @@ export function registerSecretCommands(program: Command) {
         const masterKey = await deriveMasterKey(config.sshKeyPath);
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
         const encrypted = await Promise.all(
           entries.map(async (e) => ({
             name: e.name,
@@ -235,7 +266,7 @@ export function registerSecretCommands(program: Command) {
             ...(await encryptValue(masterKey, e.value)),
           }))
         );
-        await adapter.batchCreateSecrets(project.id, session.userId, encrypted);
+        await adapter.batchCreateSecrets(project.id, env.id, session.userId, encrypted);
         console.log(`✓ Imported ${entries.length} secrets.`);
       } catch (e: any) {
         console.error("Error:", e.message);
@@ -247,6 +278,7 @@ export function registerSecretCommands(program: Command) {
   secret
     .command("export")
     .option("--project <p>", "Project name")
+    .option("-e, --env <environment>", "Environment name", "default")
     .option("--output <file>", "Output file (default: stdout)")
     .action(async (opts) => {
       const config = loadConfig();
@@ -255,7 +287,8 @@ export function registerSecretCommands(program: Command) {
       try {
         const adapter = createAdapter(config);
         const project = await resolveProject(adapter, session.userId, opts.project);
-        const items = await adapter.listSecretsForExport(project.id);
+        const env = await resolveEnvironment(adapter, project.id, opts.env);
+        const items = await adapter.listSecretsForExport(project.id, env.id);
         const masterKey = await deriveMasterKey(config.sshKeyPath);
         const lines: string[] = [];
         for (const item of items) {

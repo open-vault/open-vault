@@ -4,6 +4,7 @@ import type {
   AuthParams,
   AuthResult,
   VaultProject,
+  VaultEnvironment,
   VaultSecret,
   VaultSecretVersion,
   VaultTeam,
@@ -80,7 +81,18 @@ export class ConvexAdapter implements VaultAdapter {
     await client.mutation("projects:del", { projectId });
   }
 
-  async listSecrets(projectId: string, type?: SecretType): Promise<VaultSecret[]> {
+  async listEnvironments(projectId: string): Promise<VaultEnvironment[]> {
+    // Convex environments not yet implemented — return synthetic default
+    return [{ id: `${projectId}:default`, projectId, name: "default", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }];
+  }
+
+  async createEnvironment(projectId: string, name: string): Promise<VaultEnvironment> {
+    return { id: `${projectId}:${name}`, projectId, name, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  }
+
+  async deleteEnvironment(_environmentId: string): Promise<void> {}
+
+  async listSecrets(projectId: string, _environmentId: string, type?: SecretType): Promise<VaultSecret[]> {
     const client = await this.getClient();
     return client.query("secrets:list", { projectId, type });
   }
@@ -90,7 +102,7 @@ export class ConvexAdapter implements VaultAdapter {
     return client.query("secrets:get", { secretId });
   }
 
-  async createSecret(projectId: string, _createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
+  async createSecret(projectId: string, _environmentId: string, _createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
     const client = await this.getClient();
     return client.mutation("secrets:create", {
       projectId,
@@ -128,17 +140,17 @@ export class ConvexAdapter implements VaultAdapter {
     return client.mutation("secrets:rollback", { secretId, targetVersionId });
   }
 
-  async batchCreateSecrets(projectId: string, _createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
+  async batchCreateSecrets(projectId: string, _environmentId: string, _createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
     const client = await this.getClient();
     await client.mutation("secrets:batchCreate", { projectId, secrets });
   }
 
-  async listSecretsForExport(projectId: string): Promise<ExportSecret[]> {
+  async listSecretsForExport(projectId: string, _environmentId: string): Promise<ExportSecret[]> {
     const client = await this.getClient();
     return client.query("secrets:listForExport", { projectId });
   }
 
-  async searchSecrets(projectId: string, query: string): Promise<VaultSecret[]> {
+  async searchSecrets(projectId: string, _environmentId: string, query: string): Promise<VaultSecret[]> {
     const client = await this.getClient();
     return client.query("secrets:search", { projectId, query });
   }

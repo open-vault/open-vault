@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { registerAuthCommands } from "./commands/auth.js";
 import { registerProjectCommands } from "./commands/project.js";
+import { registerEnvCommands } from "./commands/env.js";
 import { registerSecretCommands } from "./commands/secret.js";
 import { registerShareCommands } from "./commands/share.js";
 import { registerTeamCommands } from "./commands/team.js";
@@ -17,6 +18,7 @@ program
 
 registerAuthCommands(program);
 registerProjectCommands(program);
+registerEnvCommands(program);
 registerSecretCommands(program);
 registerShareCommands(program);
 registerTeamCommands(program);

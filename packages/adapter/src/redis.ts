@@ -2,19 +2,21 @@
  * Redis adapter. Stores vault data in Redis using hash and sorted-set structures.
  *
  * Key layout:
- *   {prefix}:users:{fingerprint}            → JSON hash
- *   {prefix}:users:by-id:{userId}           → fingerprint (lookup)
- *   {prefix}:projects:{projectId}           → JSON hash
- *   {prefix}:projects:by-owner:{userId}     → sorted set of projectIds
- *   {prefix}:secrets:{secretId}             → JSON hash
- *   {prefix}:secrets:by-project:{projectId} → sorted set of secretIds
- *   {prefix}:versions:{secretId}:{versionId}→ JSON hash
- *   {prefix}:versions:by-secret:{secretId}  → sorted set (score=versionNumber)
- *   {prefix}:teams:{teamId}                 → JSON hash
- *   {prefix}:members:{memberId}             → JSON hash
- *   {prefix}:members:by-team:{teamId}       → sorted set of memberIds
- *   {prefix}:links:{linkId}                 → JSON hash
- *   {prefix}:links:by-secret:{secretId}     → sorted set of linkIds
+ *   {prefix}:users:{fingerprint}              → JSON hash
+ *   {prefix}:users:by-id:{userId}             → fingerprint (lookup)
+ *   {prefix}:projects:{projectId}             → JSON hash
+ *   {prefix}:projects:by-owner:{userId}       → sorted set of projectIds
+ *   {prefix}:env:{environmentId}              → JSON hash
+ *   {prefix}:envs:by-project:{projectId}      → sorted set of environmentIds
+ *   {prefix}:secrets:{secretId}               → JSON hash
+ *   {prefix}:secrets:by-env:{environmentId}   → sorted set of secretIds
+ *   {prefix}:versions:{secretId}:{versionId}  → JSON hash
+ *   {prefix}:versions:by-secret:{secretId}    → sorted set (score=versionNumber)
+ *   {prefix}:teams:{teamId}                   → JSON hash
+ *   {prefix}:members:{memberId}               → JSON hash
+ *   {prefix}:members:by-team:{teamId}         → sorted set of memberIds
+ *   {prefix}:links:{linkId}                   → JSON hash
+ *   {prefix}:links:by-secret:{secretId}       → sorted set of linkIds
  *
  * Auth: Redis auth/ACL gates access. SSH fingerprint identifies the vault user.
  *
@@ -27,6 +29,7 @@ import type {
   AuthResult,
   VaultUser,
   VaultProject,
+  VaultEnvironment,
   VaultSecret,
   VaultSecretVersion,
   VaultTeam,
@@ -158,12 +161,37 @@ export class RedisAdapter implements VaultAdapter {
     await this.setJson(this.k("projects", projectId), { ...project, status: "DELETED", updatedAt: now() });
   }
 
-  async listSecrets(projectId: string, type?: SecretType): Promise<VaultSecret[]> {
+  async listEnvironments(projectId: string): Promise<VaultEnvironment[]> {
     const r = await this.client();
-    const ids = await r.zrevrange(this.k("secrets", "by-project", projectId), 0, -1);
+    const ids = await r.zrevrange(this.k("envs", "by-project", projectId), 0, -1);
+    const envs = await Promise.all(ids.map((id) => this.getJson<VaultEnvironment>(this.k("env", id))));
+    return envs.filter(Boolean) as VaultEnvironment[];
+  }
+
+  async createEnvironment(projectId: string, name: string): Promise<VaultEnvironment> {
+    const r = await this.client();
+    const id = generateId();
+    const ts = now();
+    const env: VaultEnvironment = { id, projectId, name, createdAt: ts, updatedAt: ts };
+    await this.setJson(this.k("env", id), env);
+    await r.zadd(this.k("envs", "by-project", projectId), Date.now(), id);
+    return env;
+  }
+
+  async deleteEnvironment(environmentId: string): Promise<void> {
+    const env = await this.getJson<VaultEnvironment>(this.k("env", environmentId));
+    if (!env) return;
+    const r = await this.client();
+    await r.del(this.k("env", environmentId));
+    await r.zrem(this.k("envs", "by-project", env.projectId), environmentId);
+  }
+
+  async listSecrets(projectId: string, environmentId: string, type?: SecretType): Promise<VaultSecret[]> {
+    const r = await this.client();
+    const ids = await r.zrevrange(this.k("secrets", "by-env", environmentId), 0, -1);
     const secrets = await Promise.all(ids.map((id) => this.getJson<VaultSecret>(this.k("secrets", id))));
     return (secrets.filter(Boolean) as VaultSecret[])
-      .filter((s) => s.status === "ACTIVE" && (!type || s.type === type))
+      .filter((s) => s.projectId === projectId && s.status === "ACTIVE" && (!type || s.type === type))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -176,7 +204,7 @@ export class RedisAdapter implements VaultAdapter {
     return { secret, version };
   }
 
-  async createSecret(projectId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
+  async createSecret(projectId: string, environmentId: string, createdBy: string, input: CreateSecretInput): Promise<VaultSecret> {
     const r = await this.client();
     const secretId = generateId();
     const versionId = generateId();
@@ -187,14 +215,14 @@ export class RedisAdapter implements VaultAdapter {
       createdBy, createdAt: ts,
     };
     const secret: VaultSecret = {
-      id: secretId, projectId, createdBy, name: input.name, type: input.type,
+      id: secretId, projectId, environmentId, createdBy, name: input.name, type: input.type,
       description: input.description, currentVersionId: versionId,
       status: "ACTIVE", createdAt: ts, updatedAt: ts,
     };
     await this.setJson(this.k("versions", secretId, versionId), version);
     await r.zadd(this.k("versions", "by-secret", secretId), 1, versionId);
     await this.setJson(this.k("secrets", secretId), secret);
-    await r.zadd(this.k("secrets", "by-project", projectId), Date.now(), secretId);
+    await r.zadd(this.k("secrets", "by-env", environmentId), Date.now(), secretId);
     return secret;
   }
 
@@ -252,20 +280,20 @@ export class RedisAdapter implements VaultAdapter {
     return newVersion;
   }
 
-  async batchCreateSecrets(projectId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
-    await Promise.all(secrets.map((s) => this.createSecret(projectId, createdBy, s)));
+  async batchCreateSecrets(projectId: string, environmentId: string, createdBy: string, secrets: CreateSecretInput[]): Promise<void> {
+    await Promise.all(secrets.map((s) => this.createSecret(projectId, environmentId, createdBy, s)));
   }
 
-  async listSecretsForExport(projectId: string): Promise<ExportSecret[]> {
-    const secrets = await this.listSecrets(projectId);
+  async listSecretsForExport(projectId: string, environmentId: string): Promise<ExportSecret[]> {
+    const secrets = await this.listSecrets(projectId, environmentId);
     return Promise.all(secrets.map(async (s) => {
       const { version } = await this.getSecret(s.id);
       return { id: s.id, name: s.name, type: s.type, encryptedValue: version.encryptedValue, encryptedKey: version.encryptedKey, iv: version.iv };
     }));
   }
 
-  async searchSecrets(projectId: string, query: string): Promise<VaultSecret[]> {
-    const secrets = await this.listSecrets(projectId);
+  async searchSecrets(projectId: string, environmentId: string, query: string): Promise<VaultSecret[]> {
+    const secrets = await this.listSecrets(projectId, environmentId);
     const q = query.toLowerCase();
     return secrets.filter((s) => s.name.toLowerCase().includes(q));
   }
