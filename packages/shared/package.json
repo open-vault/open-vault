@@ -1,0 +1,17 @@
+{
+  "name": "@open-vault/shared",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./validators": "./src/validators.ts",
+    "./state-machine": "./src/state-machine.ts"
+  },
+  "dependencies": {
+    "@open-vault/constants": "workspace:*",
+    "@open-vault/errors": "workspace:*",
+    "zod": "^3.23.0"
+  }
+}

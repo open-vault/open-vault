@@ -1,0 +1,1 @@
+{ "secretId": "test-secret-id", "mode": "TIME_LIMITED", "encryptedPayload": "cGF5bG9hZA==", "expiresAt": "2026-03-23T14:10:44.308Z", "maxViews": 5 }

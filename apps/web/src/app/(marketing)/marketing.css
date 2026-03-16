@@ -1,0 +1,456 @@
+/* ─────────────────────────────────────────────────────────────────
+   Open Secret — Marketing CSS
+   Terminal-luxe aesthetic: matte near-black, emerald accents,
+   phosphor-glow code blocks, Space Mono display type.
+───────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
+/* ── Custom Properties ───────────────────────────────────────── */
+:root {
+  --mk-bg:            #080b0f;
+  --mk-surface:       #0d1117;
+  --mk-surface-raised:#161b22;
+  --mk-border:        rgba(255,255,255,0.06);
+  --mk-border-strong: rgba(255,255,255,0.12);
+  --mk-text:          #f0f6fc;
+  --mk-muted:         #7d8590;
+  --mk-accent:        #10b981;
+  --mk-accent-glow:   rgba(16,185,129,0.15);
+  --mk-accent-glow-strong: rgba(16,185,129,0.25);
+  --mk-phosphor:      #39d353;
+  --mk-danger:        #f85149;
+
+  --font-display: 'Space Mono', 'Courier New', monospace;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-code:    'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+
+/* ── Base Reset for Marketing ────────────────────────────────── */
+.mk-root {
+  background: var(--mk-bg);
+  color: var(--mk-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Typography ──────────────────────────────────────────────── */
+.mk-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.mk-display-sm {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.mk-label {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mk-accent);
+}
+
+/* ── Gradient text ───────────────────────────────────────────── */
+.mk-gradient-text {
+  background: linear-gradient(135deg, #f0f6fc 0%, var(--mk-accent) 60%, var(--mk-phosphor) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Scanline overlay on terminal elements ───────────────────── */
+.mk-scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.07) 2px,
+    rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ── Terminal window chrome ──────────────────────────────────── */
+.mk-terminal {
+  background: var(--mk-surface);
+  border: 1px solid var(--mk-border-strong);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.5),
+    0 24px 48px rgba(0,0,0,0.6),
+    0 0 60px rgba(16,185,129,0.04);
+}
+
+.mk-terminal-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background: var(--mk-surface-raised);
+  border-bottom: 1px solid var(--mk-border);
+}
+
+.mk-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.mk-dot-close  { background: #ff5f57; }
+.mk-dot-min    { background: #ffbd2e; }
+.mk-dot-max    { background: #28ca41; }
+
+.mk-terminal-title {
+  font-family: var(--font-code);
+  font-size: 0.6875rem;
+  color: var(--mk-muted);
+  margin-left: auto;
+  margin-right: auto;
+  letter-spacing: 0.05em;
+}
+
+.mk-terminal-body {
+  padding: 20px 24px;
+  font-family: var(--font-code);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: #c9d1d9;
+}
+
+.mk-prompt {
+  color: var(--mk-phosphor);
+  user-select: none;
+}
+
+.mk-cmd {
+  color: var(--mk-text);
+}
+
+.mk-comment {
+  color: var(--mk-muted);
+  font-style: italic;
+}
+
+.mk-output {
+  color: #8b949e;
+}
+
+.mk-success {
+  color: var(--mk-accent);
+}
+
+.mk-string {
+  color: #a5d6ff;
+}
+
+/* ── Phosphor cursor blink ───────────────────────────────────── */
+.mk-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  background: var(--mk-phosphor);
+  vertical-align: text-bottom;
+  animation: mk-blink 1.1s step-end infinite;
+}
+
+@keyframes mk-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ── Feature card hover glow ─────────────────────────────────── */
+.mk-card {
+  background: var(--mk-surface);
+  border: 1px solid var(--mk-border);
+  border-radius: 12px;
+  padding: 28px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mk-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 0%, var(--mk-accent-glow) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mk-card:hover {
+  border-color: rgba(16,185,129,0.35);
+  box-shadow: 0 0 0 1px rgba(16,185,129,0.1), 0 8px 32px rgba(0,0,0,0.4);
+  transform: translateY(-2px);
+}
+
+.mk-card:hover::before {
+  opacity: 1;
+}
+
+/* ── Nav link slide-underline ────────────────────────────────── */
+.mk-nav-link {
+  position: relative;
+  color: var(--mk-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: color 0.2s ease;
+  font-family: var(--font-body);
+}
+
+.mk-nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 0;
+  height: 1px;
+  background: var(--mk-accent);
+  transition: width 0.25s ease;
+}
+
+.mk-nav-link:hover {
+  color: var(--mk-text);
+}
+
+.mk-nav-link:hover::after {
+  width: 100%;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.mk-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--mk-accent);
+  color: #022c22;
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 12px 24px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  text-decoration: none;
+}
+
+.mk-btn-primary:hover {
+  background: #0ea572;
+  box-shadow: 0 0 20px rgba(16,185,129,0.4);
+  transform: translateY(-1px);
+}
+
+.mk-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--mk-muted);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  padding: 12px 20px;
+  border-radius: 6px;
+  border: 1px solid var(--mk-border-strong);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  text-decoration: none;
+}
+
+.mk-btn-ghost:hover {
+  color: var(--mk-text);
+  border-color: rgba(255,255,255,0.2);
+  background: var(--mk-surface-raised);
+}
+
+/* ── Step number badge ───────────────────────────────────────── */
+.mk-step-number {
+  font-family: var(--font-display);
+  font-size: 4.5rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.04);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  user-select: none;
+  position: absolute;
+  top: -8px;
+  left: -8px;
+}
+
+/* ── Quickstart step marker ──────────────────────────────────── */
+.mk-step-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--mk-surface-raised);
+  border: 1px solid var(--mk-border-strong);
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  color: var(--mk-accent);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.mk-step-line {
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  bottom: -8px;
+  width: 1px;
+  background: linear-gradient(to bottom, var(--mk-border-strong), transparent);
+}
+
+/* ── Divider ─────────────────────────────────────────────────── */
+.mk-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--mk-border-strong), transparent);
+}
+
+/* ── Glow ring on section accent ─────────────────────────────── */
+.mk-glow-ring {
+  box-shadow:
+    0 0 0 1px rgba(16,185,129,0.2),
+    0 0 30px rgba(16,185,129,0.1);
+}
+
+/* ── Hero gradient orb ───────────────────────────────────────── */
+.mk-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+/* ── Code copy button ────────────────────────────────────────── */
+.mk-copy-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--mk-surface-raised);
+  border: 1px solid var(--mk-border-strong);
+  color: var(--mk-muted);
+  font-family: var(--font-code);
+  font-size: 0.6875rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+  letter-spacing: 0.04em;
+}
+
+.mk-copy-btn:hover {
+  color: var(--mk-accent);
+  border-color: rgba(16,185,129,0.4);
+}
+
+/* ── Stagger fade-up animation ───────────────────────────────── */
+@keyframes mk-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mk-animate-1 { animation: mk-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
+.mk-animate-2 { animation: mk-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) 0.25s both; }
+.mk-animate-3 { animation: mk-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) 0.4s both; }
+.mk-animate-4 { animation: mk-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) 0.55s both; }
+.mk-animate-5 { animation: mk-fade-up 0.6s cubic-bezier(0.16,1,0.3,1) 0.7s both; }
+
+/* ── Border draw animation on terminal ───────────────────────── */
+@keyframes mk-border-draw {
+  from { opacity: 0.3; }
+  to   { opacity: 1; }
+}
+
+.mk-terminal {
+  animation: mk-border-draw 0.8s ease 0.5s both;
+}
+
+/* ── Inline badge ────────────────────────────────────────────── */
+.mk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.2);
+  color: var(--mk-accent);
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 100px;
+}
+
+.mk-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mk-accent);
+  animation: mk-blink 2s ease-in-out infinite;
+}
+
+/* ── How-it-works connector line ─────────────────────────────── */
+.mk-connector {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--mk-border-strong), var(--mk-accent-glow), var(--mk-border-strong));
+}
+
+/* ── Sticky ToC (quickstart) ─────────────────────────────────── */
+.mk-toc-link {
+  display: block;
+  font-family: var(--font-code);
+  font-size: 0.75rem;
+  color: var(--mk-muted);
+  text-decoration: none;
+  padding: 5px 0 5px 12px;
+  border-left: 1px solid var(--mk-border);
+  transition: color 0.2s ease, border-color 0.2s ease;
+  letter-spacing: 0.02em;
+}
+
+.mk-toc-link:hover,
+.mk-toc-link.active {
+  color: var(--mk-accent);
+  border-left-color: var(--mk-accent);
+}
+
+/* ── Footer gradient border ──────────────────────────────────── */
+.mk-footer-border {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(16,185,129,0.3) 30%,
+    rgba(16,185,129,0.3) 70%,
+    transparent 100%
+  );
+}

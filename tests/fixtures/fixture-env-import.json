@@ -1,0 +1,8 @@
+{
+  "projectId": "test-project-id",
+  "secrets": [
+    { "name": "DB_URL", "type": "KV", "encryptedValue": "dGVzdA==", "encryptedKey": "a2V5a2V5.a2V5Y2lwaGVy", "iv": "aXZpdml2aXY=" },
+    { "name": "API_KEY", "type": "KV", "encryptedValue": "dGVzdA==", "encryptedKey": "a2V5a2V5.a2V5Y2lwaGVy", "iv": "aXZpdml2aXY=" },
+    { "name": "JWT_SECRET", "type": "KV", "encryptedValue": "dGVzdA==", "encryptedKey": "a2V5a2V5.a2V5Y2lwaGVy", "iv": "aXZpdml2aXY=" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@open-vault/mcp",
+  "version": "0.1.0",
+  "description": "Open Vault MCP server — give AI tools zero-trust access to your secrets",
+  "type": "module",
+  "bin": { "ov-mcp": "./src/index.ts" },
+  "scripts": {
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile=dist/ov-mcp"
+  },
+  "dependencies": {
+    "@open-vault/adapter": "workspace:*",
+    "@open-vault/cli": "workspace:*",
+    "@open-vault/constants": "workspace:*"
+  },
+  "keywords": ["mcp", "secrets", "open-vault", "claude", "ai"],
+  "license": "MIT"
+}

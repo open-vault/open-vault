@@ -1,0 +1,18 @@
+{
+  "name": "open-vault",
+  "version": "0.0.1",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "bun test tests/spec.test.ts",
+    "dev:web": "bun --cwd apps/web dev",
+    "dev:cli": "bun --cwd apps/cli dev",
+    "convex:dev": "bunx convex dev"
+  },
+  "dependencies": {
+    "convex": "^1.33.1"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@open-vault/convex",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy"
+  },
+  "dependencies": {
+    "convex": "^1.12.0",
+    "zod": "^3.23.0"
+  }
+}
