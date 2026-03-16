@@ -105,7 +105,7 @@ if (
     }
   }
 
-  private async put(key: string, value: unknown): Promise<void> {
+  private async put(key: string, value: unknown, expiresAt?: Date): Promise<void> {
     const { PutObjectCommand } = await import("@aws-sdk/client-s3");
     const client = await this.client();
     await client.send(new PutObjectCommand({
@@ -113,6 +113,7 @@ if (
       Key: key,
       Body: JSON.stringify(value),
       ContentType: "application/json",
+      ...(expiresAt ? { Expires: expiresAt } : {}),
     }));
   }
 
@@ -438,16 +439,17 @@ if (
       status: "ACTIVE",
       createdAt: now(),
     };
-    await this.put(this.key("share-links", `${link.id}.json`), link);
+    await this.put(this.key("share-links", `${link.id}.json`), link, new Date(input.expiresAt));
     return link;
   }
 
   async accessShareLink(linkId: string): Promise<{ encryptedPayload: string; mode: ShareLinkMode }> {
     const key = this.key("share-links", `${linkId}.json`);
     const link = await this.get<VaultShareLink>(key);
-    if (!link) throw AppError.notFound("ShareLink");
+    const notFound = () => new AppError("not_found", "Share link does not exist or may have expired");
+    if (!link) throw notFound();
     if (link.status === "REVOKED") throw AppError.shareLinkRevoked();
-    if (link.status === "EXPIRED" || new Date(link.expiresAt) < new Date()) throw AppError.shareLinkExpired();
+    if (link.status === "EXPIRED" || new Date(link.expiresAt) < new Date()) throw notFound();
     if (link.status === "EXHAUSTED") throw AppError.shareLinkExhausted();
     const newCount = link.viewCount + 1;
     const newStatus = link.maxViews && newCount >= link.maxViews ? "EXHAUSTED" : "ACTIVE";

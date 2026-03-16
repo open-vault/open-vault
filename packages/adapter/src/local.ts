@@ -396,9 +396,10 @@ export class LocalAdapter implements VaultAdapter {
   async accessShareLink(linkId: string): Promise<{ encryptedPayload: string; mode: ShareLinkMode }> {
     const filePath = this.path("share-links", `${linkId}.json`);
     const link = this.read<VaultShareLink>(filePath);
-    if (!link) throw AppError.notFound("ShareLink");
+    const notFound = () => new AppError("not_found", "Share link does not exist or may have expired");
+    if (!link) throw notFound();
     if (link.status === "REVOKED") throw AppError.shareLinkRevoked();
-    if (link.status === "EXPIRED" || new Date(link.expiresAt) < new Date()) throw AppError.shareLinkExpired();
+    if (link.status === "EXPIRED" || new Date(link.expiresAt) < new Date()) throw notFound();
     if (link.status === "EXHAUSTED") throw AppError.shareLinkExhausted();
     const newCount = link.viewCount + 1;
     const newStatus = link.maxViews && newCount >= link.maxViews ? "EXHAUSTED" : "ACTIVE";
