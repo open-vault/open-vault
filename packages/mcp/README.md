@@ -23,21 +23,27 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "open-vault": {
-      "command": "bun",
-      "args": ["/path/to/open-vault/packages/mcp/src/index.ts"]
+      "command": "bunx",
+      "args": ["@open-vault/mcp"]
     }
   }
 }
 ```
 
-Or build a binary first:
+Or with npm/npx:
 
-```bash
-cd packages/mcp
-bun run build
+```json
+{
+  "mcpServers": {
+    "open-vault": {
+      "command": "npx",
+      "args": ["@open-vault/mcp"]
+    }
+  }
+}
 ```
 
-Then use `dist/ov-mcp` as the command.
+No global install needed. `bunx` / `npx` download and run the server on demand.
 
 ## Usage with Claude Code
 

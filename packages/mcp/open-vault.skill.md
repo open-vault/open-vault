@@ -50,15 +50,17 @@ ov secret set <name>                    # prompts for value interactively
 ov secret set <name> --value "abc123"   # inline value
 ov secret set <name> --file ./key.pem   # read from file
 ov secret set <name> --project myapp   # target specific project
+ov secret set <name> --project myapp -e staging  # target specific environment
 ov secret set <name> --type ENV_FILE    # types: KV (default), ENV_FILE, NOTE, JSON
 ```
 
 ### Get a secret
 
 ```bash
-ov secret get <name>                    # prints NAME=value
-ov secret get <name> --raw              # prints raw value only (good for piping)
+ov secret get <name>                    # prints the secret value
+ov secret get <name> --raw              # omits trailing newline (for piping)
 ov secret get <name> --project myapp
+ov secret get <name> --project myapp -e staging
 ```
 
 ### List secrets
@@ -90,6 +92,33 @@ ov secret export --output .env.backup   # export to file
 ```bash
 ov secret versions <name>               # list all versions
 ov secret rollback <name> --version <id>  # roll back to a specific version
+```
+
+## Environments
+
+Every project has environments. All secret commands accept `-e / --env <name>` (default: `default`).
+
+```bash
+ov env list   --project myapp
+ov env create staging  --project myapp
+ov env delete staging  --project myapp
+```
+
+## Sharing
+
+```bash
+# Time-limited (share ID + key with recipient)
+ov share create <name> --project myapp --expires 24h --views 1
+
+# Recipient-locked (encrypted to recipient's GitHub SSH keys — no key to transmit)
+ov share create <name> --project myapp --recipient-github <github-handle>
+
+# Recipient opens (no install needed)
+npx @open-vault/cli share open <id> --key <key>   # time-limited
+npx @open-vault/cli share open <id>               # recipient-locked (uses ~/.ssh/id_ed25519)
+
+ov share list <name> --project myapp
+ov share revoke <link-id>
 ```
 
 ## Tips for Claude

@@ -40,7 +40,7 @@ npx @open-vault/cli onboard
 │  ✔ Registered fingerprint SHA256:3Xk...f9           │
 │  ✔ Vault initialized                                │
 │                                                     │
-│  You're ready. Run:  ov auth login                  │
+│  You're ready.                                      │
 └─────────────────────────────────────────────────────┘
 
 $ ov secret set DATABASE_URL --project production
@@ -140,6 +140,8 @@ ov auth whoami      # Print current identity (fingerprint + display name)
 
 ```bash
 ov secret set DATABASE_URL --project production
+ov secret set DATABASE_URL --project production -e staging   # target an environment
+
 ov secret get DATABASE_URL --project production
 ov secret list     --project production
 ov secret delete   DATABASE_URL --project production
@@ -153,6 +155,16 @@ ov secret versions DATABASE_URL --project production
 ov secret rollback DATABASE_URL --version <version-id> --project production
 ```
 
+All secret commands accept `-e / --env <name>` (default: `default`) to target a specific environment.
+
+### Environments
+
+```bash
+ov env list   --project production
+ov env create staging  --project production
+ov env delete staging  --project production
+```
+
 ### Projects
 
 ```bash
@@ -163,22 +175,52 @@ ov project delete production
 
 ### Sharing
 
-Share a secret via a time-limited link. The decryption key lives only in the URL fragment — the server never receives it.
+Two modes: time-limited (random key, you send the key to the recipient) or recipient-locked (encrypted to all of the recipient's GitHub SSH keys — no key to share).
+
+**Time-limited** — share the ID and key with the recipient:
 
 ```bash
-# One-time link, expires in 24 hours
-ov share create DATABASE_URL \
-  --project production \
-  --expires 24h \
-  --max-views 1
+ov share create DATABASE_URL --project production --expires 24h --views 1
+```
 
-# Recipient-locked: encrypted to a specific SSH public key via age
-ov share create DATABASE_URL \
-  --project production \
-  --expires 48h \
-  --recipient-key ~/.ssh/alice_ed25519.pub
+```
+✓ Share link created
+  ID:      abc123...
+  Expires: 2026-03-18T...
+  Key:     xK9mP2_qR...
 
-ov share list   DATABASE_URL --project production
+  Send both the ID and Key to the recipient:
+  ov share open abc123... --key xK9mP2_qR...
+```
+
+Recipient decrypts (no install needed):
+```bash
+npx @open-vault/cli share open <id> --key <key>
+```
+
+**Recipient-locked** — encrypted to the recipient's GitHub SSH keys; no key to transmit:
+
+```bash
+ov share create DATABASE_URL --project production --recipient-github alice
+```
+
+```
+✓ Share link created (locked to @alice)
+  ID:      def456...
+  Expires: 2026-03-18T...
+
+  Recipient runs:
+  npx @open-vault/cli share open def456...
+```
+
+Recipient decrypts using `~/.ssh/id_ed25519` automatically — no `--key` needed:
+```bash
+npx @open-vault/cli share open <id>
+```
+
+**Other share commands:**
+```bash
+ov share list   DATABASE_URL --project production -e staging
 ov share revoke <link-id>
 ```
 
@@ -359,7 +401,7 @@ Each secret has its own random 32-byte AES key. That key is wrapped (encrypted) 
 ### Sharing
 
 - **Time-limited links** — a random 32-byte share key encrypts the value. The key is placed in the URL fragment (`#key=...`). The server receives only the ciphertext; the fragment is never sent over HTTP.
-- **Recipient-locked links** — value is encrypted with the recipient's SSH public key via `age` (`age-encryption.org/v1`). Only the recipient's private key can decrypt it.
+- **Recipient-locked links** — the CLI fetches all Ed25519 keys from `github.com/<handle>.keys`, converts each to X25519, and wraps a content key for all of them using ECDH X25519 + HKDF-SHA256 + AES-GCM (multi-recipient, similar in structure to age). Only the recipient's Ed25519 SSH private key can decrypt it.
 
 ### Authentication
 
