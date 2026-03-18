@@ -4,7 +4,7 @@ export type ProjectStatus = "ACTIVE" | "DELETED";
 export type SecretStatus = "ACTIVE" | "DELETED";
 export type TeamRole = "OWNER" | "EDITOR" | "VIEWER";
 export type TeamMemberStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED";
-export type ShareLinkMode = "TIME_LIMITED" | "RECIPIENT_LOCKED";
+export type ShareLinkMode = "TIME_LIMITED" | "VIEW_LIMITED" | "RECIPIENT_LOCKED";
 export type ShareLinkStatus = "ACTIVE" | "EXPIRED" | "EXHAUSTED" | "REVOKED";
 
 export interface VaultUser {

@@ -265,13 +265,17 @@ export function registerShareCommands(program: Command) {
     .command("create <secret-name>")
     .option("--project <p>", "Project name")
     .option("-e, --env <environment>", "Environment name", "default")
-    .option("--expires <duration>", "Expiry duration (e.g. 1h, 7d)", "24h")
+    .option("--expires <duration>", "Expiry duration (e.g. 1h, 7d) — omit with --views for a view-limited link")
     .option("--views <n>", "Max view count", parseInt)
     .option("--recipient-github <handle>", "Lock to a GitHub user's SSH public key (no --key needed to open)")
     .action(async (secretName, opts) => {
       const config = loadConfig();
       const session = loadSession();
       if (!session) { console.error("Not logged in."); process.exit(1); }
+      if (!opts.expires && !opts.views && !opts.recipientGithub) {
+        console.error("Specify at least --expires <duration> or --views <n>.");
+        process.exit(1);
+      }
       try {
         const adapter = createAdapter(config);
         const { project, env } = await resolveProjectAndEnv(adapter, session.userId, opts.project, opts.env);
@@ -282,7 +286,10 @@ export function registerShareCommands(program: Command) {
 
         const masterKey = await deriveMasterKey(config.sshKeyPath);
         const plaintext = await decryptValue(masterKey, version.encryptedValue, version.encryptedKey, version.iv);
-        const expiresAt = new Date(Date.now() + parseDuration(opts.expires)).toISOString();
+        // VIEW_LIMITED: no time expiry — use far-future sentinel so schema is satisfied
+        const expiresAt = opts.expires
+          ? new Date(Date.now() + parseDuration(opts.expires)).toISOString()
+          : new Date("2100-01-01T00:00:00.000Z").toISOString();
 
         if (opts.recipientGithub) {
           // RECIPIENT_LOCKED: encrypt to recipient's SSH public key
@@ -315,7 +322,13 @@ export function registerShareCommands(program: Command) {
           console.log(`\n  Recipient runs:`);
           console.log(`  npx @open-vault/cli share open ${link.id}`);
         } else {
-          // TIME_LIMITED: random share key
+          // VIEW_LIMITED (no --expires) or TIME_LIMITED (has --expires)
+          const mode = !opts.expires && opts.views ? "VIEW_LIMITED" : "TIME_LIMITED";
+          if (mode === "VIEW_LIMITED" && !opts.views) {
+            console.error("--views <n> is required for view-limited links.");
+            process.exit(1);
+          }
+
           const shareKey = crypto.getRandomValues(new Uint8Array(32));
           const encryptedPayload = await encryptWithShareKey(shareKey, plaintext);
 
@@ -323,16 +336,20 @@ export function registerShareCommands(program: Command) {
             secretId: s.id,
             secretVersionId: version.id,
             createdBy: session.userId,
-            mode: "TIME_LIMITED",
+            mode,
             encryptedPayload,
             expiresAt,
             maxViews: opts.views,
           });
 
           const shareKeyB64 = Buffer.from(shareKey).toString("base64url");
-          console.log(`✓ Share link created`);
+          if (mode === "VIEW_LIMITED") {
+            console.log(`✓ Share link created (view-limited: ${opts.views} view${opts.views === 1 ? "" : "s"})`);
+          } else {
+            console.log(`✓ Share link created`);
+            console.log(`  Expires: ${expiresAt}`);
+          }
           console.log(`  ID:      ${link.id}`);
-          console.log(`  Expires: ${expiresAt}`);
           if (opts.views) console.log(`  Max views: ${opts.views}`);
           console.log(`  Key:     ${shareKeyB64}`);
           console.log(`\n  Send both the ID and Key to the recipient:`);
@@ -362,7 +379,8 @@ export function registerShareCommands(program: Command) {
         const links = await adapter.listShareLinks(s.id);
         if (links.length === 0) { console.log("No share links."); return; }
         for (const l of links) {
-          console.log(`  ${l.id}  [${l.mode}/${l.status}]  expires:${l.expiresAt}  views:${l.viewCount}/${l.maxViews ?? "∞"}`);
+          const expiry = l.mode === "VIEW_LIMITED" ? "never" : l.expiresAt;
+          console.log(`  ${l.id}  [${l.mode}/${l.status}]  expires:${expiry}  views:${l.viewCount}/${l.maxViews ?? "∞"}`);
         }
       } catch (e: any) {
         console.error("Error:", e.message);

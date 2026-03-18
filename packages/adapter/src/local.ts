@@ -399,7 +399,7 @@ export class LocalAdapter implements VaultAdapter {
     const notFound = () => new AppError("not_found", "Share link does not exist or may have expired");
     if (!link) throw notFound();
     if (link.status === "REVOKED") throw AppError.shareLinkRevoked();
-    if (link.status === "EXPIRED" || new Date(link.expiresAt) < new Date()) throw notFound();
+    if (link.mode !== "VIEW_LIMITED" && (link.status === "EXPIRED" || new Date(link.expiresAt) < new Date())) throw notFound();
     if (link.status === "EXHAUSTED") throw AppError.shareLinkExhausted();
     const newCount = link.viewCount + 1;
     const newStatus = link.maxViews && newCount >= link.maxViews ? "EXHAUSTED" : "ACTIVE";
